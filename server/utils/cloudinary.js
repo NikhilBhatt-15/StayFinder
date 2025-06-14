@@ -12,17 +12,12 @@ cloudinary.config({
 });
 
 const uploadOnCloudinary = async (filePath) => {
-  console.log(
-    process.env.CLOUDINARY_CLOUD_NAME,
-    process.env.CLOUDINARY_API_KEY,
-    process.env.CLOUDINARY_API_SECRET
-  );
   try {
     const result = await cloudinary.uploader.upload(filePath, {
       resource_type: "auto",
     });
     fs.unlinkSync(filePath); // Delete the file after upload
-    console.log("File uploaded to Cloudinary:", result.secure_url);
+    // console.log("File uploaded to Cloudinary:", result.secure_url);
     return result.secure_url;
   } catch (error) {
     console.error("Error uploading to Cloudinary:", error);

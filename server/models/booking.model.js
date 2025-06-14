@@ -6,6 +6,7 @@ const bookingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Listing",
       required: true,
+      index: true, // Index for faster queries
     },
     guest: {
       type: mongoose.Schema.Types.ObjectId,
@@ -13,7 +14,17 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
     checkIn: { type: Date, required: true },
-    checkOut: { type: Date, required: true },
+    checkOut: {
+      type: Date,
+      required: true,
+      validate: {
+        validator: function (value) {
+          return this.checkIn < value;
+        },
+        message: "checkOut must be after checkIn",
+      },
+    },
+    nights: { type: Number },
     totalPrice: { type: Number, required: true },
   },
   {

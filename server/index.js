@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 import connectDB from "./database/db.js";
 
+// Index to speed up booking conflict queries
+
 dotenv.config({
   path: "./.env",
 });

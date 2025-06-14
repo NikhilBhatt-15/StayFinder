@@ -13,45 +13,61 @@ const createListing = async (req, res, next) => {
       pricePerNight,
       availableDates,
       amenities,
+      city,
+      country,
+      address,
     } = req.body;
     if (
       !title ||
       !description ||
       !location ||
       !pricePerNight ||
-      !availableDates
+      !availableDates ||
+      !city ||
+      !country ||
+      !address
     ) {
       throw new ApiError(
         400,
-        "Please provide all required fields: title, description, location, pricePerNight, availableDates"
+        "Please provide all required fields: title, description, location, pricePerNight, availableDates , city, country, address"
       );
     }
+
     availableDates = JSON.parse(availableDates);
     amenities = amenities ? JSON.parse(amenities) : [];
-    location = JSON.parse(location);
+    location = typeof location === "string" ? JSON.parse(location) : location;
+
+    // Step 2: Validate coordinates
+    if (
+      !location.coordinates ||
+      !Array.isArray(location.coordinates) ||
+      location.coordinates.length !== 2
+    ) {
+      throw new ApiError(
+        400,
+        "Location must include coordinates in [longitude, latitude] format"
+      );
+    }
+
+    // Step 3: Ensure GeoJSON format for MongoDB
+    location = {
+      type: "Point",
+      coordinates: location.coordinates,
+    };
     if (!Array.isArray(availableDates) || availableDates.length === 0) {
       throw new ApiError(
         400,
         "Available dates must be an array with at least one date range"
       );
     }
+    for (const range of availableDates) {
+      if (new Date(range.from) >= new Date(range.to)) {
+        throw new ApiError(400, "Each date range must have from < to");
+      }
+    }
     if (amenities && !Array.isArray(amenities)) {
       throw new ApiError(400, "Amenities must be an array");
     }
-    if (
-      location &&
-      (!location.city ||
-        !location.country ||
-        !location.address ||
-        !location.coordinates)
-    ) {
-      throw new ApiError(
-        400,
-        "Location must include city, country, address, and coordinates"
-      );
-    }
-    console.log("req.files", req.files);
-
     const localpath = req.files?.map((file) => file.path);
     if (!localpath || localpath.length === 0) {
       throw new ApiError(
@@ -76,6 +92,10 @@ const createListing = async (req, res, next) => {
       images: imageUrls,
       host: req.user._id,
       availableDates,
+      city: city.trim(),
+      country: country.trim(),
+      address: address.trim(),
+
       amenities: amenities || [],
     });
 

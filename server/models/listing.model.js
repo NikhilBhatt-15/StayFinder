@@ -5,21 +5,57 @@ const listingSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: String,
     location: {
-      city: String,
-      country: String,
-      address: String,
-      coordinates: { lat: Number, lng: Number },
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        required: true,
+        validate: {
+          validator: function (value) {
+            return (
+              value.length === 2 &&
+              value[0] >= -180 &&
+              value[0] <= 180 &&
+              value[1] >= -90 &&
+              value[1] <= 90
+            );
+          },
+          message: "Coordinates must be [longitude, latitude]",
+        },
+      },
     },
+    city: { type: String, required: true },
+    country: { type: String, required: true },
+    address: { type: String, required: true },
     pricePerNight: { type: Number, required: true },
     images: [String], // array of image URLs
-    host: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    host: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    }, // reference to the User model
     availableDates: [
       {
-        from: Date,
-        to: Date,
+        from: {
+          type: Date,
+          required: true,
+        },
+        to: {
+          type: Date,
+          required: true,
+          validate: {
+            validator: function (value) {
+              return this.from < value;
+            },
+            message: "End date must be after start date",
+          },
+        },
       },
     ],
-    isBooked: { type: Boolean, default: false },
     amenities: {
       type: [String],
       enum: [
@@ -59,5 +95,10 @@ const listingSchema = new mongoose.Schema(
     timestamps: true, // Automatically add createdAt and updatedAt fields
   }
 );
+listingSchema.virtual("averageRating").get(function () {
+  if (!this.reviews || this.reviews.length === 0) return 0;
+  const total = this.reviews.reduce((acc, review) => acc + review.rating, 0);
+  return total / this.reviews.length;
+});
 
 export const Listing = mongoose.model("Listing", listingSchema);
