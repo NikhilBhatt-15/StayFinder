@@ -256,7 +256,9 @@ export default function Home() {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="relative">
-                  <img
+                  <Image
+                    width={400}
+                    height={300}
                     src={listing.image}
                     alt={listing.title}
                     className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
