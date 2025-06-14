@@ -1,11 +1,9 @@
 import dotenv from "dotenv";
-import connectDB from "./database/db.js";
-
-// Index to speed up booking conflict queries
 
 dotenv.config({
   path: "./.env",
 });
+import connectDB from "./database/db.js";
 import app from "./app.js";
 const PORT = process.env.PORT || 3000;
 // Connect to the database
