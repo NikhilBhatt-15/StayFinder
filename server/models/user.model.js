@@ -34,6 +34,18 @@ const userSchema = new mongoose.Schema(
         "https://res.cloudinary.com/dnv6ajx3b/image/upload/r_max/social-media-app/o2qlhr6jwkqkdgmtx2bl",
     },
     role: { type: String, enum: ["guest", "host"], default: "guest" },
+    likedListings: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Listing",
+      },
+    ], // Array of liked listing IDs
+    savedListings: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Listing",
+      },
+    ], // Array of saved listing IDs
   },
   {
     timestamps: true, // Automatically add createdAt and updatedAt fields

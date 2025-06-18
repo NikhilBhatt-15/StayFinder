@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Check, Upload, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const nameElement = useRef<HTMLInputElement>(null);
 
   const passwordRequirements = [
     { text: "At least 8 characters", met: formData.password.length >= 8 },
@@ -50,6 +51,18 @@ const Register = () => {
       reader.readAsDataURL(file);
     }
   };
+
+  useEffect(() => {
+    // Focus the name input when the component mounts
+    if (nameElement.current) {
+      nameElement.current.focus();
+      nameElement.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +185,7 @@ const Register = () => {
                   <Input
                     id="Name"
                     name="Name"
+                    ref={nameElement}
                     placeholder="Enter your name"
                     value={formData.Name}
                     onChange={handleChange}

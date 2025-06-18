@@ -3,6 +3,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import { Listing } from "../models/listing.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import mongoose from "mongoose";
+import { User } from "../models/user.model.js";
 
 const createListing = async (req, res, next) => {
   try {
@@ -303,6 +304,153 @@ const deleteListing = async (req, res, next) => {
   }
 };
 
+const likeListing = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      throw new ApiError(400, "Listing ID is required");
+    }
+    // check if id is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Listing ID is not valid");
+    }
+    const listing = await Listing.findById(id).lean();
+    if (!listing) {
+      throw new ApiError(404, "Listing not found");
+    }
+    // Check if the user has already liked the listing
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+    if (user.likedListings.includes(id)) {
+      // User has already liked the listing, so remove the like
+      user.likedListings = user.likedListings.filter(
+        (listingId) => listingId.toString() !== id
+      );
+      await user.save();
+      res.status(200).json(
+        new ApiResponse(200, "Listing unliked successfully", {
+          liked: false,
+          listingId: id,
+        })
+      );
+    } else {
+      // User has not liked the listing, so add the like
+      user.likedListings.push(id);
+      await user.save();
+      res.status(200).json(
+        new ApiResponse(200, "Listing liked successfully", {
+          liked: true,
+          listingId: id,
+        })
+      );
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+const getLikedListings = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    if (!userId) {
+      throw new ApiError(400, "User ID is required");
+    }
+    const user = await User.findById(userId).populate("likedListings");
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+    if (!user.likedListings || user.likedListings.length === 0) {
+      throw new ApiError(404, "No liked listings found for this user");
+    }
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          "Liked listings retrieved successfully",
+          user.likedListings
+        )
+      );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const saveListing = async (req, res, next) => {
+  const { id } = req.params;
+  try {
+    if (!id) {
+      throw new ApiError(400, "Listing ID is required");
+    }
+    // check if id is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Listing ID is not valid");
+    }
+    const listing = await Listing.findById(id).lean();
+    if (!listing) {
+      throw new ApiError(404, "Listing not found");
+    }
+    // Check if the user has already saved the listing
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+    if (user.savedListings.includes(id)) {
+      // User has already saved the listing, so remove the save
+      user.savedListings = user.savedListings.filter(
+        (listingId) => listingId.toString() !== id
+      );
+      await user.save();
+      res.status(200).json(
+        new ApiResponse(200, "Listing unsaved successfully", {
+          saved: false,
+          listingId: id,
+        })
+      );
+    } else {
+      // User has not saved the listing, so add the save
+      user.savedListings.push(id);
+      await user.save();
+      res.status(200).json(
+        new ApiResponse(200, "Listing saved successfully", {
+          saved: true,
+          listingId: id,
+        })
+      );
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSavedListings = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    if (!userId) {
+      throw new ApiError(400, "User ID is required");
+    }
+    const user = await User.findById(userId).populate("savedListings");
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+    if (!user.savedListings || user.savedListings.length === 0) {
+      throw new ApiError(404, "No saved listings found for this user");
+    }
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          "Saved listings retrieved successfully",
+          user.savedListings
+        )
+      );
+  } catch (error) {
+    next(error);
+  }
+};
+
 export {
   createListing,
   getAllListings,
@@ -311,4 +459,8 @@ export {
   getListingsByHostId,
   updateListing,
   deleteListing,
+  likeListing,
+  getLikedListings,
+  saveListing,
+  getSavedListings,
 };

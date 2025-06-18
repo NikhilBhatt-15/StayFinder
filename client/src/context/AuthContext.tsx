@@ -1,5 +1,6 @@
 // context/AuthContext.tsx
 "use client";
+import { Listing } from "@/types/listing";
 import {
   createContext,
   useContext,
@@ -8,12 +9,14 @@ import {
   useEffect,
 } from "react";
 
-type User = {
+export type User = {
   id: string;
   email: string;
   role: "host" | "guest";
   avatar: string | null;
   name: string;
+  likedListings?: Listing[]; // Array of Listing _id strings
+  savedListings?: Listing[]; // Array of Listing _id strings
 }; // expand as needed
 type AuthCtx = {
   user: User | null;
@@ -29,23 +32,11 @@ const AuthContext = createContext<AuthCtx>({
   refreshUser: async () => {},
 });
 
-export function AuthProvider({
-  initialUser,
-  children,
-}: {
-  initialUser: User | null;
-  children: ReactNode;
-}) {
-  const [user, setUser] = useState<User | null>(initialUser);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
-    // If initialUser is provided, set it immediately
-    if (initialUser) {
-      setUser(initialUser);
-    } else {
-      // Otherwise, fetch the user from /me endpoint
-      refreshUser();
-    }
-  }, [initialUser]);
+    refreshUser();
+  }, []);
 
   /** Call backend /logout then clear context */
   const logout = async () => {
@@ -70,6 +61,8 @@ export function AuthProvider({
         role: data.user.role,
         avatar: data.user.avatar || null,
         name: data.user.name || "",
+        likedListings: data.user.likedListings || [],
+        savedListings: data.user.savedListings || [],
       });
     } else {
       setUser(null);

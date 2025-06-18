@@ -9,6 +9,10 @@ import {
   getOwnListings,
   updateListing,
   deleteListing,
+  likeListing,
+  getLikedListings,
+  saveListing,
+  getSavedListings,
 } from "../controllers/listing.controller.js";
 const app = Router();
 
@@ -18,6 +22,10 @@ app.get("/own", authMiddleware, getOwnListings);
 app.get("/:id", getListingById);
 app.get("/host/:hostId", authMiddleware, getListingsByHostId);
 app.delete("/delete/:id", authMiddleware, deleteListing);
+app.post("/like/:id", authMiddleware, likeListing);
+app.get("/liked", authMiddleware, getLikedListings);
+app.post("/save/:id", authMiddleware, saveListing);
+app.get("/saved", authMiddleware, getSavedListings);
 app.put(
   "/update/:id",
   authMiddleware,

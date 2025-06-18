@@ -52,6 +52,8 @@ export type User = {
   phone?: string;
   avatar?: string;
   role: "guest" | "host";
+  likedListings?: Listing[];
+  savedListings?: Listing[]; // Array of Listing _id strings
   createdAt?: string;
   updatedAt?: string;
 };
