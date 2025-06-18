@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     description:
       "Find your perfect stay with StayFinder, your go-to platform for unique travel experiences.",
     creator: "@stayfinder",
-    images: ["https://stayfinder.com/og-image.png"],
+    images: ["https://stay-finder-two.vercel.app/og-image.png"],
   },
   icons: {
     icon: "/favicon.png",
