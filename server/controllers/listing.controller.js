@@ -282,6 +282,27 @@ const updateListing = async (req, res, next) => {
   }
 };
 
+const deleteListing = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      throw new ApiError(400, "Listing ID is required");
+    }
+    const listing = await Listing.findById(id);
+    if (!listing) {
+      throw new ApiError(404, "Listing not found");
+    }
+    // Check if the user is the host of the listing
+    if (listing.host.toString() !== req.user._id.toString()) {
+      throw new ApiError(403, "You are not authorized to delete this listing");
+    }
+    await Listing.findByIdAndDelete(id);
+    res.status(200).json(new ApiResponse(200, "Listing deleted successfully"));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export {
   createListing,
   getAllListings,
@@ -289,4 +310,5 @@ export {
   getOwnListings,
   getListingsByHostId,
   updateListing,
+  deleteListing,
 };

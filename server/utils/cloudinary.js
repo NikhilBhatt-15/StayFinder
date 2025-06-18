@@ -1,26 +1,24 @@
 import dotenv from "dotenv";
-dotenv.config({
-  path: "../.env",
-});
+dotenv.config();
 
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 
-const uploadOnCloudinary = async (filePath) => {
-  const cloud_name = process.env.CLOUDINARY_CLOUD_NAME;
-  const api_key = process.env.CLOUDINARY_API_KEY;
-  const api_secret = process.env.CLOUDINARY_API_SECRET;
-  if (!cloud_name || !api_key || !api_secret) {
-    console.error(
-      "Cloudinary configuration is missing. Please check your .env file."
-    );
-  }
-  cloudinary.config({
-    cloud_name: cloud_name,
-    api_key: api_key,
-    api_secret: api_secret,
-  });
+const cloud_name = process.env.CLOUDINARY_CLOUD_NAME;
+const api_key = process.env.CLOUDINARY_API_KEY;
+const api_secret = process.env.CLOUDINARY_API_SECRET;
+if (!cloud_name || !api_key || !api_secret) {
+  console.error(
+    "Cloudinary configuration is missing. Please check your .env file."
+  );
+}
+cloudinary.config({
+  cloud_name: cloud_name,
+  api_key: api_key,
+  api_secret: api_secret,
+});
 
+const uploadOnCloudinary = async (filePath) => {
   try {
     const result = await cloudinary.uploader.upload(filePath, {
       resource_type: "auto",

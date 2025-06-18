@@ -8,6 +8,7 @@ import {
   getListingsByHostId,
   getOwnListings,
   updateListing,
+  deleteListing,
 } from "../controllers/listing.controller.js";
 const app = Router();
 
@@ -16,6 +17,7 @@ app.get("/all", getAllListings);
 app.get("/own", authMiddleware, getOwnListings);
 app.get("/:id", getListingById);
 app.get("/host/:hostId", authMiddleware, getListingsByHostId);
+app.delete("/delete/:id", authMiddleware, deleteListing);
 app.put(
   "/update/:id",
   authMiddleware,
