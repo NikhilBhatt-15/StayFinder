@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   authors: [
     {
       name: "StayFinder Team",
-      url: "https://stay-finder-two.vercel.app/",
+      url: "https://stayfinder.nikhilbhatt.tech/",
     },
   ],
   creator: "StayFinder Team",
@@ -39,11 +39,11 @@ export const metadata: Metadata = {
     title: "StayFinder ✈️",
     description:
       "Find your perfect stay with StayFinder, your go-to platform for unique travel experiences.",
-    url: "https://stay-finder-two.vercel.app/",
+    url: "https://stayfinder.nikhilbhatt.tech/",
     siteName: "StayFinder",
     images: [
       {
-        url: "https://stay-finder-two.vercel.app/og-image.png",
+        url: "https://stayfinder.nikhilbhatt.tech/og-image.png",
         width: 1200,
         height: 630,
         alt: "StayFinder - Find your perfect stay",
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     description:
       "Find your perfect stay with StayFinder, your go-to platform for unique travel experiences.",
     creator: "@stayfinder",
-    images: ["https://stay-finder-two.vercel.app/og-image.png"],
+    images: ["https://stayfinder.nikhilbhatt.tech/og-image.png"],
   },
   icons: {
     icon: "/favicon.png",
