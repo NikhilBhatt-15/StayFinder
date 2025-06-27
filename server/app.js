@@ -35,10 +35,12 @@ app.get("/", (req, res) => {
 import userRoutes from "./routes/auth.route.js";
 import listingRoutes from "./routes/listing.route.js";
 import bookingRoutes from "./routes/booking.route.js";
+import paymentRoutes from "./routes/payment.route.js";
 
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/listing", listingRoutes);
 app.use("/api/v1/booking", bookingRoutes);
+app.use("/api/v1/payment", paymentRoutes);
 // Import and use the error middleware
 app.use(errorMiddleware);
 export default app;

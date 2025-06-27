@@ -8,6 +8,20 @@ import { Button } from "./ui/button";
 import { Label } from "@radix-ui/react-label";
 import { Input } from "./ui/input";
 import ListingHeader from "./ListingHeader";
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (document.getElementById("razorpay-sdk")) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "razorpay-sdk";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 // Listing type based on your API
 interface Listing {
@@ -59,8 +73,8 @@ export default function ListingDetail() {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(1);
-  const handleBooking = () => {
-    // Handle booking logic here
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const handleBooking = async () => {
     if (!checkIn || !checkOut || guests < 1) {
       alert("Please fill in all booking details.");
       return;
@@ -73,32 +87,71 @@ export default function ListingDetail() {
       alert("Guests must be between 1 and 8.");
       return;
     }
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/booking/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include", // Include cookies for session management
-      body: JSON.stringify({
-        listingId: id,
-        startDate: checkIn,
-        endDate: checkOut,
-        guests,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          alert("Booking successful!");
-          // Optionally redirect or update UI
+
+    // 1. Load Razorpay SDK
+    const res = await loadRazorpayScript();
+    if (!res) {
+      alert("Failed to load Razorpay SDK. Please try again.");
+      return;
+    }
+
+    // 2. Create Razorpay order on backend
+    const orderRes = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/payment/order`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ amount: total, currency: "INR" }),
+      }
+    );
+    const orderData = await orderRes.json();
+    if (!orderData.order) {
+      alert("Failed to create payment order. Please try again.");
+      return;
+    }
+
+    // 3. Open Razorpay checkout
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, // Set this in your .env.local
+      amount: orderData.order.amount,
+      currency: orderData.order.currency,
+      name: listing?.title,
+      description: "StayFinder Booking",
+      order_id: orderData.order.id,
+      handler: async function (response: any) {
+        // 4. On payment success, create booking
+        const bookingRes = await fetch(
+          `${process.env.NEXT_PUBLIC_BASE_URL}/booking/create`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              listingId: id,
+              startDate: checkIn,
+              endDate: checkOut,
+              guests,
+              amount: total,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          }
+        );
+        const bookingData = await bookingRes.json();
+        if (bookingData.success) {
+          setBookingSuccess(true);
         } else {
-          alert(data.message || "Booking failed. Please try again.");
+          alert(bookingData.message || "Booking failed. Please try again.");
         }
-      })
-      .catch((error) => {
-        console.error("Booking error:", error);
-        alert("An error occurred while booking. Please try again later.");
-      });
+      },
+      prefill: {},
+      theme: { color: "#6366f1" },
+    };
+    // @ts-ignore
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
   const saveListing = async (id: string) => {
@@ -137,7 +190,7 @@ export default function ListingDetail() {
   let extraGuestCharge = 0;
   if (listing && guests > 4) {
     // Example: charge 500 per extra guest per night
-    extraGuestCharge = (guests - 4) * 500 * nights;
+    extraGuestCharge = (guests - 4) * 500;
   }
   const cleaningFee = nights > 0 ? 50 : 0;
   const serviceFee = nights > 0 ? 75 : 0;
@@ -375,112 +428,145 @@ export default function ListingDetail() {
           <div className="lg:col-span-1">
             <Card className="sticky top-8 backdrop-blur-sm bg-white/90 border-white/20 shadow-2xl animate-scale-in">
               <CardContent className="p-6">
-                <div className="text-center mb-6">
-                  <div className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                    ${listing.pricePerNight}
-                  </div>
-                  <div className="text-slate-600">per night</div>
-                </div>
-
-                <div className="space-y-4 mb-6">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label
-                        htmlFor="checkin"
-                        className="text-slate-700 font-medium"
-                      >
-                        Check-in
-                      </Label>
-                      <Input
-                        id="checkin"
-                        type="date"
-                        min={minCheckIn}
-                        max={maxCheckOut}
-                        value={checkIn}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (!isDateAllowed(val)) return;
-                          setCheckIn(val);
-                          // If checkOut is before new checkIn, reset checkOut
-                          if (checkOut && new Date(checkOut) < new Date(val))
-                            setCheckOut("");
-                        }}
-                        className="border-slate-300 focus:border-indigo-400 focus:ring-indigo-400/20"
-                      />
+                {bookingSuccess ? (
+                  <div className="flex flex-col items-center justify-center min-h-[300px]">
+                    <div className="text-3xl mb-4 text-green-600">🎉</div>
+                    <div className="text-xl font-bold text-green-700 mb-2">
+                      Reservation Confirmed!
                     </div>
-                    <div>
-                      <Label
-                        htmlFor="checkout"
-                        className="text-slate-700 font-medium"
-                      >
-                        Check-out
-                      </Label>
-                      <Input
-                        id="checkout"
-                        type="date"
-                        min={checkIn || minCheckIn}
-                        max={maxCheckOut}
-                        value={checkOut}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (!isDateAllowed(val)) return;
-                          setCheckOut(val);
-                        }}
-                        className="border-slate-300 focus:border-purple-400 focus:ring-purple-400/20"
-                      />
+                    <div className="text-slate-700 mb-2 text-center">
+                      Your booking for{" "}
+                      <span className="font-semibold">{listing?.title}</span> is
+                      confirmed.
+                      <br />
+                      Check-in: <span className="font-semibold">{checkIn}</span>
+                      <br />
+                      Check-out:{" "}
+                      <span className="font-semibold">{checkOut}</span>
+                      <br />
+                      Guests: <span className="font-semibold">{guests}</span>
                     </div>
-                  </div>
-
-                  <div>
-                    <Label
-                      htmlFor="guests"
-                      className="text-slate-700 font-medium"
+                    <div className="text-indigo-700 font-bold text-lg mt-2">
+                      Total Paid: ₹{total}
+                    </div>
+                    <Button
+                      className="mt-6"
+                      onClick={() => window.location.reload()}
                     >
-                      Guests
-                    </Label>
-                    <Input
-                      id="guests"
-                      type="number"
-                      min="1"
-                      max="8"
-                      value={guests}
-                      onChange={(e) => setGuests(parseInt(e.target.value))}
-                      className="border-slate-300 focus:border-pink-400 focus:ring-pink-400/20"
-                    />
+                      Book Another Stay
+                    </Button>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <div className="text-center mb-6">
+                      <div className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        ${listing.pricePerNight}
+                      </div>
+                      <div className="text-slate-600">per night</div>
+                    </div>
 
-                <div className="mb-2 text-slate-700">
-                  Nights: <span className="font-semibold">{nights}</span>
-                </div>
-                {guests > 4 && (
-                  <div className="mb-2 text-red-600 text-sm">
-                    Extra guest charges applied: ₹{extraGuestCharge}
-                  </div>
-                )}
-                <div className="mb-2 text-slate-700">
-                  Cleaning Fee: ₹{cleaningFee}
-                </div>
-                <div className="mb-2 text-slate-700">
-                  Service Fee: ₹{serviceFee}
-                </div>
-                <div className="text-xl font-bold text-indigo-700 mb-4">
-                  Total: ₹{total}
-                </div>
-                <Button
-                  onClick={handleBooking}
-                  className="w-full mb-4 hover-scale bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg"
-                  size="lg"
-                  disabled={nights === 0}
-                >
-                  Reserve Now
-                </Button>
+                    <div className="space-y-4 mb-6">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label
+                            htmlFor="checkin"
+                            className="text-slate-700 font-medium"
+                          >
+                            Check-in
+                          </Label>
+                          <Input
+                            id="checkin"
+                            type="date"
+                            min={minCheckIn}
+                            max={maxCheckOut}
+                            value={checkIn}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (!isDateAllowed(val)) return;
+                              setCheckIn(val);
+                              // If checkOut is before new checkIn, reset checkOut
+                              if (
+                                checkOut &&
+                                new Date(checkOut) < new Date(val)
+                              )
+                                setCheckOut("");
+                            }}
+                            className="border-slate-300 focus:border-indigo-400 focus:ring-indigo-400/20"
+                          />
+                        </div>
+                        <div>
+                          <Label
+                            htmlFor="checkout"
+                            className="text-slate-700 font-medium"
+                          >
+                            Check-out
+                          </Label>
+                          <Input
+                            id="checkout"
+                            type="date"
+                            min={checkIn || minCheckIn}
+                            max={maxCheckOut}
+                            value={checkOut}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (!isDateAllowed(val)) return;
+                              setCheckOut(val);
+                            }}
+                            className="border-slate-300 focus:border-purple-400 focus:ring-purple-400/20"
+                          />
+                        </div>
+                      </div>
 
-                <p className="text-center text-sm text-slate-600 mb-4">
-                  You won&apos;t be charged yet
-                </p>
+                      <div>
+                        <Label
+                          htmlFor="guests"
+                          className="text-slate-700 font-medium"
+                        >
+                          Guests
+                        </Label>
+                        <Input
+                          id="guests"
+                          type="number"
+                          min="1"
+                          max="8"
+                          value={guests}
+                          onChange={(e) => setGuests(parseInt(e.target.value))}
+                          className="border-slate-300 focus:border-pink-400 focus:ring-pink-400/20"
+                        />
+                      </div>
+                    </div>
 
-                {/* <div className="space-y-3 pt-4 border-t border-slate-200">
+                    <div className="mb-2 text-slate-700">
+                      Nights: <span className="font-semibold">{nights}</span>
+                    </div>
+                    {guests > 4 && (
+                      <div className="mb-2 text-red-600 text-sm">
+                        Extra guest charges applied: ₹{extraGuestCharge}
+                      </div>
+                    )}
+                    <div className="mb-2 text-slate-700">
+                      Cleaning Fee: ₹{cleaningFee}
+                    </div>
+                    <div className="mb-2 text-slate-700">
+                      Service Fee: ₹{serviceFee}
+                    </div>
+                    <div className="text-xl font-bold text-indigo-700 mb-4">
+                      Total: ₹{total}
+                    </div>
+                    <Button
+                      onClick={handleBooking}
+                      className="w-full mb-4 hover-scale bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg"
+                      size="lg"
+                      disabled={nights === 0}
+                    >
+                      Reserve Now
+                    </Button>
+
+                    <p className="text-center text-sm text-slate-600 mb-4">
+                      You won&apos;t be charged yet
+                    </p>
+
+                    {/* <div className="space-y-3 pt-4 border-t border-slate-200">
                   <div className="flex justify-between text-slate-600">
                     <span>${listing.pricePerNight} × 5 nights</span>
                     <span>${listing.pricePerNight * 5}</span>
@@ -498,6 +584,8 @@ export default function ListingDetail() {
                     <span>${listing.pricePerNight * 5 + 50 + 75}</span>
                   </div>
                 </div> */}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

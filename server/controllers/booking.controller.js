@@ -4,12 +4,13 @@ import mongoose from "mongoose";
 import dayjs from "dayjs";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import crypto from "crypto";
 
 const CLEANING_FEE = 50;
 const SERVICE_FEE = 75;
 const guestFee = (guests) => {
   if (guests <= 4) return 0;
-  if (guests > 4) return (guests - 4) * 500;
+  if (guests > 4) return (guests - 4) * 1000;
 };
 
 const createBooking = async (req, res, next) => {
@@ -18,8 +19,24 @@ const createBooking = async (req, res, next) => {
 
   try {
     // ---------- 1. pull & normalise -----------------
-    const { listingId, startDate, endDate, guests } = req.body;
+    const {
+      listingId,
+      startDate,
+      endDate,
+      guests,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      amount,
+    } = req.body;
+    const generated_signature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(razorpay_order_id + "|" + razorpay_payment_id)
+      .digest("hex");
 
+    if (generated_signature !== razorpay_signature) {
+      throw new ApiError(400, "Payment verification failed");
+    }
     if (!listingId || !startDate || !endDate) {
       throw new ApiError(400, "listingId, startDate, endDate are required");
     }
@@ -73,6 +90,21 @@ const createBooking = async (req, res, next) => {
     const totalGuestsFee = guestFee(guests);
     const totalBookingPrice =
       totalPrice + CLEANING_FEE + SERVICE_FEE + totalGuestsFee;
+
+    // ---------- 5.1. validate paid amount -----------
+    if (typeof amount !== "number" || amount !== totalBookingPrice) {
+      throw new ApiError(
+        400,
+        `Paid amount (₹${amount}) does not match booking price (₹${totalBookingPrice})`
+      );
+    }
+
+    // ---------- 5.2. (Optional) Razorpay payment status verification -----------
+    // You can add an extra check here by calling Razorpay API to verify payment status.
+    // Example (pseudo-code):
+    // const payment = await razorpay.payments.fetch(razorpay_payment_id);
+    // if (payment.status !== 'captured') throw new ApiError(400, 'Payment not captured');
+    // ...existing code...
 
     // ---------- 6. create booking --------------------
     const booking = await Booking.create(

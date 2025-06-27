@@ -1,6 +1,6 @@
 # StayFinder
 
-A modern full-stack web application for booking and hosting unique stays, inspired by Airbnb. Built with Next.js (App Router), React, TypeScript, shadcn/ui, Node.js, Express, and MongoDB.
+A modern full-stack web application for booking and hosting unique stays, inspired by Airbnb. Built with **Next.js (App Router)**, **React**, **TypeScript**, **shadcn/ui**, **Node.js**, **Express**, and **MongoDB**.
 
 ## Features
 
@@ -13,15 +13,17 @@ A modern full-stack web application for booking and hosting unique stays, inspir
 - Protected routes and authentication (JWT, cookies)
 - Skeleton loaders and modern UI/UX
 - Cloudinary integration for image storage
+- Razorpay payment integration for secure bookings
 - Responsive and mobile-friendly design
 
 ## Tech Stack
 
-- **Frontend:** Next.js (App Router), React, TypeScript, shadcn/ui, Tailwind CSS
+- **Frontend:** Next.js (App Router), React, TypeScript, shadcn/ui, Tailwind CSS, Razorpay JS SDK
 - **Backend:** Node.js, Express, MongoDB, Mongoose
 - **Auth:** JWT, HttpOnly cookies
 - **Image Upload:** Cloudinary
 - **Map:** react-leaflet, OpenStreetMap
+- **Payments:** Razorpay
 - **Deployment:** Vercel (frontend), Render (backend)
 
 ## Getting Started
@@ -31,6 +33,7 @@ A modern full-stack web application for booking and hosting unique stays, inspir
 - Node.js >= 18
 - MongoDB Atlas or local MongoDB
 - Cloudinary account
+- Razorpay account (for payment integration)
 
 ### Environment Variables
 
@@ -44,12 +47,15 @@ CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 CLIENT_URL=https://your-frontend.vercel.app
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
 ```
 
 #### Frontend (`client/.env.local`):
 
 ```
 NEXT_PUBLIC_BASE_URL=https://your-backend.onrender.com/api
+NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
 ```
 
 ### Installation
@@ -87,7 +93,7 @@ server/    # Express backend
 
 - Built by Nikhil
 - UI inspired by Airbnb
-- Powered by shadcn/ui, Leaflet, Cloudinary, and more
+- Powered by shadcn/ui, Leaflet, Cloudinary, Razorpay, and more
 
 ## License
 
