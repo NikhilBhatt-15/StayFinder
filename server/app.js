@@ -8,7 +8,11 @@ const app = express();
 // Middleware to handle CORS
 app.use(
   cors({
-    origin: true,
+    origin: [
+      "http://localhost:3000",
+      "https://stayfinder.nikhilbhatt.tech",
+      "https://stay-finder-nikhils-projects-5f042c5c.vercel.app/",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
