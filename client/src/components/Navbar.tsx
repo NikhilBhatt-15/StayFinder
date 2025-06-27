@@ -28,12 +28,14 @@ const Navbar = () => {
         >
           Experiences
         </Link>
-        <Link
-          href="/host"
-          className="text-slate-700 hover:text-purple-600 story-link font-medium transition-colors"
-        >
-          {user ? "Host a Stay" : "Become a Host"}
-        </Link>
+        {user ? (
+          <Link
+            href={user?.role === "host" ? "/host/dashboard" : "/dashboard"}
+            className="text-slate-700 hover:text-purple-600 story-link font-medium transition-colors"
+          >
+            Dashboard
+          </Link>
+        ) : null}
       </div>
       <div className="flex items-center space-x-4">
         {user ? (

@@ -39,22 +39,23 @@ const createListing = async (req, res, next) => {
     location = typeof location === "string" ? JSON.parse(location) : location;
 
     // Step 2: Validate coordinates
+
+    // Step 3: Ensure GeoJSON format for MongoDB
+    location = {
+      type: "Point",
+      coordinates: location,
+    };
     if (
       !location.coordinates ||
       !Array.isArray(location.coordinates) ||
       location.coordinates.length !== 2
     ) {
+      console.error("Invalid coordinates format:", location.coordinates);
       throw new ApiError(
         400,
         "Location must include coordinates in [longitude, latitude] format"
       );
     }
-
-    // Step 3: Ensure GeoJSON format for MongoDB
-    location = {
-      type: "Point",
-      coordinates: location.coordinates,
-    };
     if (!Array.isArray(availableDates) || availableDates.length === 0) {
       throw new ApiError(
         400,
@@ -137,10 +138,11 @@ const getListingById = async (req, res, next) => {
 
 const getAllListings = async (req, res, next) => {
   try {
-    const listings = await Listing.find().populate(
-      "host",
-      "-password -refreshToken"
-    );
+    const listings = await Listing.find({
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    })
+      .sort({ createdAt: -1 })
+      .populate("host", "-password -refreshToken");
     res
       .status(200)
       .json(new ApiResponse(200, "Listings retrieved successfully", listings));
@@ -155,16 +157,35 @@ const getOwnListings = async (req, res, next) => {
     if (!hostId) {
       throw new ApiError(400, "Host ID is required");
     }
-    const listings = await Listing.find({ host: hostId }).populate(
-      "host",
-      "-password -refreshToken"
-    );
-    if (!listings || listings.length === 0) {
-      throw new ApiError(404, "No listings found for this host");
-    }
+    const listings = await Listing.find({ host: hostId })
+      .populate("host", "-password -refreshToken")
+      .lean();
+
+    // if (!listings || listings.length === 0) {
+    //   throw new ApiError(404, "No listings found for this host");
+    // }
+    const listingsWithStatus = listings.map((listing) => {
+      return {
+        ...listing,
+        status: listing.availableDates.some((dateRange) => {
+          const today = new Date();
+          const fromDate = new Date(dateRange.from);
+          const toDate = new Date(dateRange.to);
+          return today >= fromDate && today <= toDate;
+        })
+          ? "active"
+          : "inactive",
+      };
+    });
     res
       .status(200)
-      .json(new ApiResponse(200, "Listings retrieved successfully", listings));
+      .json(
+        new ApiResponse(
+          200,
+          "Listings retrieved successfully",
+          listingsWithStatus
+        )
+      );
   } catch (error) {
     next(error);
   }
@@ -176,10 +197,9 @@ const getListingsByHostId = async (req, res, next) => {
     if (!hostId) {
       throw new ApiError(400, "Host ID is required");
     }
-    const listings = await Listing.find({ host: hostId }).populate(
-      "host",
-      "-password -refreshToken"
-    );
+    const listings = await Listing.find({
+      host: hostId,
+    }).populate("host", "-password -refreshToken");
     if (!listings || listings.length === 0) {
       throw new ApiError(404, "No listings found for this host");
     }
@@ -212,13 +232,19 @@ const updateListing = async (req, res, next) => {
       pricePerNight,
       availableDates,
       amenities,
+      city,
+      country,
+      address,
     } = req.body;
     if (
       !title ||
       !description ||
       !location ||
       !pricePerNight ||
-      !availableDates
+      !availableDates ||
+      !city ||
+      !country ||
+      !address
     ) {
       throw new ApiError(
         400,
@@ -234,22 +260,29 @@ const updateListing = async (req, res, next) => {
     if (amenities && !Array.isArray(amenities)) {
       throw new ApiError(400, "Amenities must be an array");
     }
+    const locationData = {
+      type: "Point",
+      coordinates: location,
+    };
     if (
-      location &&
-      (!location.city ||
-        !location.country ||
-        !location.address ||
-        !location.coordinates)
+      !locationData.coordinates ||
+      !Array.isArray(locationData.coordinates) ||
+      locationData.coordinates.length !== 2
     ) {
+      console.error("Invalid coordinates format:", locationData.coordinates);
       throw new ApiError(
         400,
-        "Location must include city, country, address, and coordinates"
+        "Location must include coordinates in [longitude, latitude] format"
       );
     }
+
     const newListingData = {
       title: title.trim(),
       description: description.trim(),
       location,
+      city: city.trim(),
+      country: country.trim(),
+      address: address.trim(),
       pricePerNight: parseFloat(pricePerNight),
       availableDates,
       amenities: amenities || [],
@@ -297,7 +330,9 @@ const deleteListing = async (req, res, next) => {
     if (listing.host.toString() !== req.user._id.toString()) {
       throw new ApiError(403, "You are not authorized to delete this listing");
     }
-    await Listing.findByIdAndDelete(id);
+    // soft delete listing
+    await Listing.findByIdAndUpdate(id, { isDeleted: true });
+    // delete images from cloudinary
     res.status(200).json(new ApiResponse(200, "Listing deleted successfully"));
   } catch (error) {
     next(error);
@@ -451,6 +486,44 @@ const getSavedListings = async (req, res, next) => {
   }
 };
 
+const searchListings = async (req, res, next) => {
+  try {
+    const { location, checkIn, checkOut, minPrice, maxPrice } = req.query;
+    const query = {
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    };
+    if (location) {
+      query.$or = [
+        { city: { $regex: location, $options: "i" } },
+        { country: { $regex: location, $options: "i" } },
+        { address: { $regex: location, $options: "i" } },
+      ];
+    }
+    if (minPrice || maxPrice) {
+      query.pricePerNight = {};
+      if (minPrice) query.pricePerNight.$gte = Number(minPrice);
+      if (maxPrice) query.pricePerNight.$lte = Number(maxPrice);
+    }
+    if (checkIn && checkOut) {
+      query.availableDates = {
+        $elemMatch: {
+          from: { $lte: checkIn },
+          to: { $gte: checkOut },
+        },
+      };
+    }
+    const listings = await Listing.find(query)
+      .sort({ createdAt: -1 })
+      .populate("host", "-password -refreshToken");
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, "Listings retrieved successfully", listings));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export {
   createListing,
   getAllListings,
@@ -463,4 +536,5 @@ export {
   getLikedListings,
   saveListing,
   getSavedListings,
+  searchListings,
 };

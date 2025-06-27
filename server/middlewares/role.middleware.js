@@ -20,7 +20,9 @@ const roleMiddleware = (requiredRole) => {
       next();
     } catch (error) {
       console.error("Role middleware error:", error);
-      return res.status(500).json(new ApiError(500, "Internal Server Error"));
+      return res
+        .status(500)
+        .json(new ApiError(500, "Does not have permission"));
     }
   };
 };

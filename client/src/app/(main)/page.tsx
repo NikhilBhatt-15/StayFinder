@@ -2,20 +2,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  Search,
-  MapPin,
-  Calendar,
-  Users,
-  Star,
-  Heart,
-  Filter,
-} from "lucide-react";
+import { Search, MapPin, Calendar, Star, Heart, Filter } from "lucide-react";
 // Import your UI components here, or use shadcn/ui if installed
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Listing } from "@/types/listing";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 function ListingSkeleton() {
   return (
@@ -40,14 +37,63 @@ function ListingSkeleton() {
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(1000);
+  const [showPricePopover, setShowPricePopover] = useState(false);
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) =>
       prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]
     );
+  };
+
+  const likeListing = async (id: string) => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/listing/like/${id}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.message || "Failed to like listing");
+      }
+      toggleFavorite(id);
+    } catch (error) {
+      console.error("Error liking listing:", error);
+      alert("Failed to like listing. Please try again later.");
+    }
+  };
+
+  const handleSearch = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery) params.append("location", searchQuery);
+      if (checkIn) params.append("checkIn", checkIn);
+      if (checkOut) params.append("checkOut", checkOut);
+      if (minPrice) params.append("minPrice", minPrice.toString());
+      if (maxPrice) params.append("maxPrice", maxPrice.toString());
+      const url = `${
+        process.env.NEXT_PUBLIC_BASE_URL
+      }/listing/search?${params.toString()}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.success)
+        throw new Error(data.message || "Failed to fetch listings");
+      setListings(data.data);
+    } catch (error) {
+      console.error("Error searching listings:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -75,63 +121,6 @@ export default function Home() {
         <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-gradient-to-br from-indigo-400/20 to-purple-400/20 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Header */}
-      {/* <header className="relative z-10 bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-lg">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/"
-              className="text-3xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 bg-clip-text text-transparent hover-scale"
-            >
-              StayFinder ✈️
-            </Link>
-
-            <nav className="hidden md:flex items-center space-x-8">
-              <Link
-                href="/"
-                className="text-slate-700 hover:text-purple-600 story-link font-medium transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                href="/experiences"
-                className="text-slate-700 hover:text-purple-600 story-link font-medium transition-colors"
-              >
-                Experiences
-              </Link>
-              <Link
-                href="/host"
-                className="text-slate-700 hover:text-purple-600 story-link font-medium transition-colors"
-              >
-                Become a Host
-              </Link>
-            </nav>
-
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                className="text-slate-700 hover:text-purple-600 hover:bg-purple-50"
-              >
-                Help
-              </Button>
-              <Link href="/login">
-                <Button
-                  variant="outline"
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-300"
-                >
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover-scale">
-                  Sign Up
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header> */}
-
       {/* Hero section */}
       <section className="relative z-10 py-20 mt-8">
         <div className="container mx-auto px-4 text-center">
@@ -154,7 +143,7 @@ export default function Home() {
           {/* Search bar */}
           <Card className="max-w-4xl mx-auto animate-scale-in backdrop-blur-sm bg-white/90 shadow-2xl border-white/20">
             <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-500 h-5 w-5" />
                   <Input
@@ -169,6 +158,8 @@ export default function Home() {
                   <Input
                     placeholder="Check-in"
                     type="date"
+                    value={checkIn}
+                    onChange={(e) => setCheckIn(e.target.value)}
                     className="pl-10 border-pink-200 focus:border-pink-400 focus:ring-pink-400/20 bg-white/50"
                   />
                 </div>
@@ -177,26 +168,69 @@ export default function Home() {
                   <Input
                     placeholder="Check-out"
                     type="date"
+                    value={checkOut}
+                    onChange={(e) => setCheckOut(e.target.value)}
                     className="pl-10 border-blue-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white/50"
                   />
                 </div>
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-indigo-500 h-5 w-5" />
-                  <Input
-                    placeholder="Guests"
-                    className="pl-10 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400/20 bg-white/50"
-                  />
-                </div>
               </div>
-              <div className="flex justify-between items-center mt-6">
+              <div className="flex justify-between items-center mt-6 gap-4">
+                <div className="flex items-center gap-2">
+                  <Popover
+                    open={showPricePopover}
+                    onOpenChange={setShowPricePopover}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                      >
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filters
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64">
+                      <div className="mb-2 font-semibold text-slate-700">
+                        Price Range ($)
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={maxPrice}
+                          value={minPrice}
+                          onChange={(e) => setMinPrice(Number(e.target.value))}
+                          className="w-1/2"
+                          placeholder="Min"
+                        />
+                        <span>-</span>
+                        <Input
+                          type="number"
+                          min={minPrice}
+                          value={maxPrice}
+                          onChange={(e) => setMaxPrice(Number(e.target.value))}
+                          className="w-1/2"
+                          placeholder="Max"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white mt-2"
+                        onClick={() => setShowPricePopover(false)}
+                      >
+                        Apply
+                      </Button>
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-sm text-slate-500 ml-2">
+                    Price: ${minPrice} - ${maxPrice}
+                  </span>
+                </div>
                 <Button
-                  variant="outline"
-                  className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 hover-scale shadow-lg"
+                  onClick={handleSearch}
+                  disabled={isLoading}
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
-                </Button>
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 hover-scale shadow-lg">
                   <Search className="h-4 w-4 mr-2" />
                   Search
                 </Button>
@@ -230,6 +264,14 @@ export default function Home() {
             <div className="container mx-auto px-4 py-8">
               <ListingSkeleton />
             </div>
+          ) : listings.length === 0 ? (
+            <div className="text-center text-lg text-slate-500 py-16">
+              No listings found.
+              <br />
+              <span className="text-slate-400 text-base">
+                Try adjusting your search or filters.
+              </span>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {listings.map((listing) => (
@@ -249,7 +291,7 @@ export default function Home() {
                     <button
                       onClick={(e) => {
                         e.preventDefault();
-                        toggleFavorite(listing._id);
+                        likeListing(listing._id);
                       }}
                       className="absolute top-4 right-4 p-2 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-colors"
                     >
@@ -275,7 +317,10 @@ export default function Home() {
                         <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
                           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
                           <span className="text-sm font-semibold text-slate-700">
-                            {Math.round(Math.random() * 5)}
+                            {listing.reviews.reduce(
+                              (acc, review) => acc + review.rating,
+                              0
+                            ) / Math.max(listing.reviews.length, 1)}
                           </span>
                         </div>
                       </div>
@@ -287,9 +332,8 @@ export default function Home() {
 
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-slate-500">
-                          {listing.reviews.length ||
-                            Math.round(Math.random() * (500 - 25))}{" "}
-                          reviews • Hosted by {listing.host.name}
+                          {listing.reviews.length || "0"} reviews • Hosted by{" "}
+                          {listing.host.name}
                         </span>
                       </div>
                     </Link>
@@ -318,7 +362,7 @@ export default function Home() {
               <ul className="space-y-2 text-slate-300">
                 <li>
                   <Link
-                    href="/about"
+                    href="#about"
                     className="hover:text-purple-400 story-link"
                   >
                     About
@@ -326,7 +370,7 @@ export default function Home() {
                 </li>
                 <li>
                   <Link
-                    href="/careers"
+                    href="#careers"
                     className="hover:text-purple-400 story-link"
                   >
                     Careers
@@ -334,7 +378,7 @@ export default function Home() {
                 </li>
                 <li>
                   <Link
-                    href="/press"
+                    href="#press"
                     className="hover:text-purple-400 story-link"
                   >
                     Press
@@ -346,13 +390,13 @@ export default function Home() {
               <h4 className="font-semibold text-pink-300 mb-4">Support</h4>
               <ul className="space-y-2 text-slate-300">
                 <li>
-                  <Link href="/help" className="hover:text-pink-400 story-link">
+                  <Link href="#help" className="hover:text-pink-400 story-link">
                     Help Center
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="/safety"
+                    href="#safety"
                     className="hover:text-pink-400 story-link"
                   >
                     Safety
@@ -360,7 +404,7 @@ export default function Home() {
                 </li>
                 <li>
                   <Link
-                    href="/contact"
+                    href="#contact"
                     className="hover:text-pink-400 story-link"
                   >
                     Contact
@@ -378,7 +422,7 @@ export default function Home() {
                 </li>
                 <li>
                   <Link
-                    href="/forum"
+                    href="#forum"
                     className="hover:text-blue-400 story-link"
                   >
                     Forum
@@ -386,7 +430,7 @@ export default function Home() {
                 </li>
                 <li>
                   <Link
-                    href="/events"
+                    href="#events"
                     className="hover:text-blue-400 story-link"
                   >
                     Events

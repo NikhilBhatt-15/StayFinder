@@ -23,6 +23,7 @@ type AuthCtx = {
   setUser: (u: User | null) => void;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  loading?: boolean; // optional loading state
 };
 
 const AuthContext = createContext<AuthCtx>({
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthCtx>({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     refreshUser();
   }, []);
@@ -49,28 +51,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /** Re‑fetch /me and update context (used after login or on demand) */
   async function refreshUser() {
-    const res = await fetch(process.env.NEXT_PUBLIC_BASE_URL + "/user/me", {
-      credentials: "include",
-    });
-    if (res.ok) {
-      const { data } = await res.json();
-      console.log("Refreshed user:", data);
-      setUser({
-        id: data.user._id,
-        email: data.user.email,
-        role: data.user.role,
-        avatar: data.user.avatar || null,
-        name: data.user.name || "",
-        likedListings: data.user.likedListings || [],
-        savedListings: data.user.savedListings || [],
+    setLoading(true);
+    try {
+      const res = await fetch(process.env.NEXT_PUBLIC_BASE_URL + "/user/me", {
+        credentials: "include",
       });
-    } else {
+      if (res.ok) {
+        const { data } = await res.json();
+        setUser({
+          id: data.user._id,
+          email: data.user.email,
+          role: data.user.role,
+          avatar: data.user.avatar || null,
+          name: data.user.name || "",
+          likedListings: data.user.likedListings || [],
+          savedListings: data.user.savedListings || [],
+        });
+      } else {
+        setUser(null);
+      }
+    } catch (e) {
       setUser(null);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, setUser, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{ user, setUser, logout, refreshUser, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );

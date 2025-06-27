@@ -3,19 +3,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  ArrowLeft,
-  Award,
-  Heart,
-  MapPin,
-  Share,
-  Shield,
-  Star,
-} from "lucide-react";
-import Link from "next/link";
+import { Award, Heart, MapPin, Share, Shield, Star } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "@radix-ui/react-label";
 import { Input } from "./ui/input";
+import ListingHeader from "./ListingHeader";
 
 // Listing type based on your API
 interface Listing {
@@ -69,7 +61,64 @@ export default function ListingDetail() {
   const [guests, setGuests] = useState(1);
   const handleBooking = () => {
     // Handle booking logic here
-    alert(`Booking for ${guests} guests from ${checkIn} to ${checkOut}`);
+    if (!checkIn || !checkOut || guests < 1) {
+      alert("Please fill in all booking details.");
+      return;
+    }
+    if (new Date(checkIn) >= new Date(checkOut)) {
+      alert("Check-out must be after check-in.");
+      return;
+    }
+    if (guests < 1 || guests > 8) {
+      alert("Guests must be between 1 and 8.");
+      return;
+    }
+    fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/booking/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies for session management
+      body: JSON.stringify({
+        listingId: id,
+        startDate: checkIn,
+        endDate: checkOut,
+        guests,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          alert("Booking successful!");
+          // Optionally redirect or update UI
+        } else {
+          alert(data.message || "Booking failed. Please try again.");
+        }
+      })
+      .catch((error) => {
+        console.error("Booking error:", error);
+        alert("An error occurred while booking. Please try again later.");
+      });
+  };
+
+  const saveListing = async (id: string) => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/listing/save/${id}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.message || "Failed to save listing");
+      }
+      setIsFavorite((prev) => !prev); // Toggle favorite state
+    } catch (error) {
+      console.error("Error saving listing:", error);
+      alert("Failed to save listing. Please try again later.");
+    }
   };
 
   // Calculate number of nights
@@ -108,6 +157,31 @@ export default function ListingDetail() {
       });
   }, [id]);
 
+  // Compute allowed date ranges from availableDates
+  let allowedRanges: { from: Date; to: Date }[] = [];
+  if (listing) {
+    allowedRanges = listing.availableDates.map((d) => ({
+      from: new Date(d.from),
+      to: new Date(d.to),
+    }));
+  }
+
+  // Helper to check if a date is in any allowed range
+  function isDateAllowed(dateStr: string) {
+    const date = new Date(dateStr);
+    return allowedRanges.some(
+      (range) => date >= range.from && date <= range.to
+    );
+  }
+
+  // Helper to get min/max for check-in and check-out
+  const minCheckIn = allowedRanges.length
+    ? allowedRanges[0].from.toISOString().split("T")[0]
+    : minDate;
+  const maxCheckOut = allowedRanges.length
+    ? allowedRanges[allowedRanges.length - 1].to.toISOString().split("T")[0]
+    : undefined;
+
   if (loading) return <div className="text-center py-20">Loading...</div>;
   if (!listing)
     return <div className="text-center py-20">Listing not found.</div>;
@@ -121,18 +195,7 @@ export default function ListingDetail() {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 bg-white/80 backdrop-blur-sm border-b border-white/20 shadow-lg">
-        <div className="container mx-auto px-4 py-4">
-          <Link
-            href="/"
-            className="inline-flex items-center text-slate-700 hover:text-indigo-600 transition-colors group"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2 group-hover:-translate-x-1 transition-transform" />
-            <span className="font-medium">Back to listings</span>
-          </Link>
-        </div>
-      </header>
-
+      <ListingHeader />
       <div className="relative z-10 container mx-auto px-19 py-8">
         {/* Title and actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 animate-fade-in">
@@ -156,7 +219,9 @@ export default function ListingDetail() {
           <div className="flex items-center space-x-3 mt-4 md:mt-0">
             <Button
               variant="outline"
-              onClick={() => setIsFavorite(!isFavorite)}
+              onClick={() => {
+                saveListing(listing._id);
+              }}
               className="border-slate-300 hover:bg-red-50 hover:border-red-300"
             >
               <Heart
@@ -329,9 +394,17 @@ export default function ListingDetail() {
                       <Input
                         id="checkin"
                         type="date"
-                        min={minDate}
+                        min={minCheckIn}
+                        max={maxCheckOut}
                         value={checkIn}
-                        onChange={(e) => setCheckIn(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (!isDateAllowed(val)) return;
+                          setCheckIn(val);
+                          // If checkOut is before new checkIn, reset checkOut
+                          if (checkOut && new Date(checkOut) < new Date(val))
+                            setCheckOut("");
+                        }}
                         className="border-slate-300 focus:border-indigo-400 focus:ring-indigo-400/20"
                       />
                     </div>
@@ -345,9 +418,14 @@ export default function ListingDetail() {
                       <Input
                         id="checkout"
                         type="date"
-                        min={checkIn || minDate}
+                        min={checkIn || minCheckIn}
+                        max={maxCheckOut}
                         value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (!isDateAllowed(val)) return;
+                          setCheckOut(val);
+                        }}
                         className="border-slate-300 focus:border-purple-400 focus:ring-purple-400/20"
                       />
                     </div>

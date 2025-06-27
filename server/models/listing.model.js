@@ -38,6 +38,7 @@ const listingSchema = new mongoose.Schema(
       required: true,
       index: true,
     }, // reference to the User model
+    isDeleted: { type: Boolean, default: false },
     availableDates: [
       {
         from: {
