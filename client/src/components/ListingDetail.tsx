@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { Label } from "@radix-ui/react-label";
 import { Input } from "./ui/input";
 import ListingHeader from "./ListingHeader";
+import { verify } from "crypto";
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
     if (document.getElementById("razorpay-sdk")) {
@@ -74,17 +75,47 @@ export default function ListingDetail() {
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(1);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
+
   const handleBooking = async () => {
+    setIsBooking(true);
+
     if (!checkIn || !checkOut || guests < 1) {
       alert("Please fill in all booking details.");
+      setIsBooking(false);
       return;
     }
     if (new Date(checkIn) >= new Date(checkOut)) {
       alert("Check-out must be after check-in.");
+      setIsBooking(false);
       return;
     }
     if (guests < 1 || guests > 8) {
       alert("Guests must be between 1 and 8.");
+      setIsBooking(false);
+      return;
+    }
+
+    const verifyRes = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/booking/verify`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          listingId: id,
+          startDate: checkIn,
+          endDate: checkOut,
+          guests,
+          amount: total,
+        }),
+      }
+    );
+
+    const verify = await verifyRes.json();
+    if (verify.status !== 200) {
+      alert(verify.message);
+      setIsBooking(false);
       return;
     }
 
@@ -92,6 +123,7 @@ export default function ListingDetail() {
     const res = await loadRazorpayScript();
     if (!res) {
       alert("Failed to load Razorpay SDK. Please try again.");
+      setIsBooking(false);
       return;
     }
 
@@ -108,6 +140,7 @@ export default function ListingDetail() {
     const orderData = await orderRes.json();
     if (!orderData.order) {
       alert("Failed to create payment order. Please try again.");
+      setIsBooking(false);
       return;
     }
 
@@ -142,8 +175,10 @@ export default function ListingDetail() {
         const bookingData = await bookingRes.json();
         if (bookingData.success) {
           setBookingSuccess(true);
+          setIsBooking(false);
         } else {
           alert(bookingData.message || "Booking failed. Please try again.");
+          setIsBooking(false);
         }
       },
       prefill: {},
@@ -557,7 +592,7 @@ export default function ListingDetail() {
                       onClick={handleBooking}
                       className="w-full mb-4 hover-scale bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg"
                       size="lg"
-                      disabled={nights === 0}
+                      disabled={nights === 0 || isBooking}
                     >
                       Reserve Now
                     </Button>

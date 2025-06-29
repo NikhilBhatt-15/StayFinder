@@ -203,4 +203,75 @@ const getGuestBookings = async (req, res, next) => {
   }
 };
 
-export { createBooking, getOwnBookings, getGuestBookings };
+const canBook = async (req, res, next) => {
+  try {
+    const { listingId, startDate, endDate, guests, amount } = req.body;
+    if (!listingId || !startDate || !endDate) {
+      throw new ApiError(400, "listingId, startDate, endDate are required");
+    }
+    if (guests > 8) {
+      throw new ApiError(400, "guests can't be greater than 8");
+    }
+    const checkIn = dayjs(startDate).startOf("day").toDate();
+    const checkOut = dayjs(endDate).startOf("day").toDate();
+
+    if (isNaN(checkIn) || isNaN(checkOut))
+      throw new ApiError(400, "Invalid date format");
+
+    if (checkIn >= checkOut)
+      throw new ApiError(400, "checkIn must be before checkOut");
+
+    if (checkIn < dayjs().startOf("day").toDate())
+      throw new ApiError(400, "checkIn cannot be in the past");
+
+    // ---------- 2. fetch listing ---------------------
+    const listing = await Listing.findById(listingId)
+      .select("pricePerNight host availableDates")
+      .lean();
+
+    if (!listing) throw new ApiError(404, "Listing not found");
+    if (listing.host.toString() === req.user._id.toString())
+      throw new ApiError(403, "You cannot book your own listing");
+
+    // ---------- 3. date‑range fits availability ------
+    const fitsRange = listing.availableDates?.some(
+      (r) => checkIn >= new Date(r.from) && checkOut <= new Date(r.to)
+    );
+    if (!fitsRange)
+      throw new ApiError(
+        400,
+        "Requested dates are not within available ranges"
+      );
+
+    const conflict = await Booking.findOne({
+      listing: listingId,
+      checkIn: { $lt: checkOut },
+      checkOut: { $gt: checkIn },
+    });
+
+    if (conflict)
+      throw new ApiError(400, "Listing already booked for those dates");
+    const nights = dayjs(checkOut).diff(dayjs(checkIn), "day");
+    const totalPrice = nights * listing.pricePerNight;
+    if (nights <= 0) throw new ApiError(400, "Invalid booking duration");
+    const totalGuestsFee = guestFee(guests);
+    const totalBookingPrice =
+      totalPrice + CLEANING_FEE + SERVICE_FEE + totalGuestsFee;
+
+    // ---------- 5.1. validate paid amount -----------
+    if (typeof amount !== "number" || amount !== totalBookingPrice) {
+      throw new ApiError(
+        400,
+        `Paid amount (₹${amount}) does not match booking price (₹${totalBookingPrice})`
+      );
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "You can Book this listing"));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { createBooking, getOwnBookings, getGuestBookings, canBook };

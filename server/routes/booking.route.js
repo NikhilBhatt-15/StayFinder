@@ -5,6 +5,7 @@ import {
   getOwnBookings,
   createBooking,
   getGuestBookings,
+  canBook,
 } from "../controllers/booking.controller.js";
 
 const app = Router();
@@ -12,5 +13,6 @@ const app = Router();
 app.get("/own", authMiddleware, roleMiddleware("host"), getOwnBookings);
 app.post("/create", authMiddleware, createBooking);
 app.get("/guest", authMiddleware, getGuestBookings);
+app.post("/verify", authMiddleware, canBook);
 
 export default app;
