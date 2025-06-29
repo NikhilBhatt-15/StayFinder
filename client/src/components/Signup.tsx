@@ -88,10 +88,12 @@ const Register = () => {
     fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/user/register`, {
       method: "POST",
       body: formDataToSend,
+      credentials: "include",
     })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success) {
+          throw new Error(data.message);
         }
         // navigate to the home page
         window.location.href = "/";

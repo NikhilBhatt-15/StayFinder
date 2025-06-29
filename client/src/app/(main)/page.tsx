@@ -42,8 +42,8 @@ export default function Home() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(1000);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [showPricePopover, setShowPricePopover] = useState(false);
 
   const toggleFavorite = (id: string) => {
@@ -76,11 +76,11 @@ export default function Home() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchQuery) params.append("location", searchQuery);
+      if (searchQuery.trim()) params.append("location", searchQuery.trim());
       if (checkIn) params.append("checkIn", checkIn);
       if (checkOut) params.append("checkOut", checkOut);
-      if (minPrice) params.append("minPrice", minPrice.toString());
-      if (maxPrice) params.append("maxPrice", maxPrice.toString());
+      if (minPrice && Number(minPrice) > 0) params.append("minPrice", minPrice);
+      if (maxPrice && Number(maxPrice) > 0) params.append("maxPrice", maxPrice);
       const url = `${
         process.env.NEXT_PUBLIC_BASE_URL
       }/listing/search?${params.toString()}`;
@@ -150,6 +150,11 @@ export default function Home() {
                     placeholder="Where are you going?"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSearch();
+                      }
+                    }}
                     className="pl-10 border-purple-200 focus:border-purple-400 focus:ring-purple-400/20 bg-white/50"
                   />
                 </div>
@@ -197,18 +202,17 @@ export default function Home() {
                         <Input
                           type="number"
                           min={0}
-                          max={maxPrice}
                           value={minPrice}
-                          onChange={(e) => setMinPrice(Number(e.target.value))}
+                          onChange={(e) => setMinPrice(e.target.value)}
                           className="w-1/2"
                           placeholder="Min"
                         />
                         <span>-</span>
                         <Input
                           type="number"
-                          min={minPrice}
+                          min={0}
                           value={maxPrice}
-                          onChange={(e) => setMaxPrice(Number(e.target.value))}
+                          onChange={(e) => setMaxPrice(e.target.value)}
                           className="w-1/2"
                           placeholder="Max"
                         />
@@ -216,14 +220,21 @@ export default function Home() {
                       <Button
                         size="sm"
                         className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white mt-2"
-                        onClick={() => setShowPricePopover(false)}
+                        onClick={() => {
+                          setShowPricePopover(false);
+                          handleSearch();
+                        }}
                       >
                         Apply
                       </Button>
                     </PopoverContent>
                   </Popover>
                   <span className="text-sm text-slate-500 ml-2">
-                    Price: ${minPrice} - ${maxPrice}
+                    {minPrice || maxPrice
+                      ? `Price: ${minPrice ? `$${minPrice}` : "Any"} - ${
+                          maxPrice ? `$${maxPrice}` : "Any"
+                        }`
+                      : "Price: Any"}
                   </span>
                 </div>
                 <Button
@@ -304,7 +315,7 @@ export default function Home() {
                       />
                     </button>
                     <div className="absolute bottom-4 left-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                      ₹{listing.pricePerNight}/night
+                      &#8377;{listing.pricePerNight}/night
                     </div>
                   </div>
 

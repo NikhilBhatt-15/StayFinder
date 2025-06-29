@@ -40,10 +40,11 @@ const Navbar = () => {
       <div className="flex items-center space-x-4">
         {user ? (
           <>
-            <Avatar className="w-9 h-9 border-2 border-purple-300 shadow">
+            <Avatar className="w-11 h-11 border-2 border-purple-300 shadow">
               <AvatarImage
                 src={user.avatar || "/next.svg"}
                 alt={user.name || "User"}
+                className="object-cover"
               />
               <AvatarFallback>{user.name ? user.name[0] : "U"}</AvatarFallback>
             </Avatar>

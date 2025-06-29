@@ -8,7 +8,6 @@ import { Button } from "./ui/button";
 import { Label } from "@radix-ui/react-label";
 import { Input } from "./ui/input";
 import ListingHeader from "./ListingHeader";
-import { verify } from "crypto";
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
     if (document.getElementById("razorpay-sdk")) {
@@ -76,6 +75,7 @@ export default function ListingDetail() {
   const [guests, setGuests] = useState(1);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [isCreatingBooking, setIsCreatingBooking] = useState(false);
 
   const handleBooking = async () => {
     setIsBooking(true);
@@ -154,6 +154,7 @@ export default function ListingDetail() {
       order_id: orderData.order.id,
       handler: async function (response: any) {
         // 4. On payment success, create booking
+        setIsCreatingBooking(true);
         const bookingRes = await fetch(
           `${process.env.NEXT_PUBLIC_BASE_URL}/booking/create`,
           {
@@ -173,6 +174,7 @@ export default function ListingDetail() {
           }
         );
         const bookingData = await bookingRes.json();
+        setIsCreatingBooking(false);
         if (bookingData.success) {
           setBookingSuccess(true);
           setIsBooking(false);
@@ -180,6 +182,12 @@ export default function ListingDetail() {
           alert(bookingData.message || "Booking failed. Please try again.");
           setIsBooking(false);
         }
+      },
+      modal: {
+        ondismiss: function () {
+          // Reset booking state when user closes the modal
+          setIsBooking(false);
+        },
       },
       prefill: {},
       theme: { color: "#6366f1" },
@@ -463,7 +471,17 @@ export default function ListingDetail() {
           <div className="lg:col-span-1">
             <Card className="sticky top-8 backdrop-blur-sm bg-white/90 border-white/20 shadow-2xl animate-scale-in">
               <CardContent className="p-6">
-                {bookingSuccess ? (
+                {isCreatingBooking ? (
+                  <div className="flex flex-col items-center justify-center min-h-[300px]">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+                    <div className="text-xl font-bold text-indigo-700 mb-2">
+                      Creating Booking...
+                    </div>
+                    <div className="text-slate-600 text-center">
+                      Please wait while we confirm your reservation.
+                    </div>
+                  </div>
+                ) : bookingSuccess ? (
                   <div className="flex flex-col items-center justify-center min-h-[300px]">
                     <div className="text-3xl mb-4 text-green-600">🎉</div>
                     <div className="text-xl font-bold text-green-700 mb-2">
@@ -482,7 +500,7 @@ export default function ListingDetail() {
                       Guests: <span className="font-semibold">{guests}</span>
                     </div>
                     <div className="text-indigo-700 font-bold text-lg mt-2">
-                      Total Paid: ₹{total}
+                      Total Paid: &#8377;{total}
                     </div>
                     <Button
                       className="mt-6"
@@ -495,7 +513,7 @@ export default function ListingDetail() {
                   <div>
                     <div className="text-center mb-6">
                       <div className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                        ₹{listing.pricePerNight}
+                        &#8377;{listing.pricePerNight}
                       </div>
                       <div className="text-slate-600">per night</div>
                     </div>
@@ -576,17 +594,17 @@ export default function ListingDetail() {
                     </div>
                     {guests > 4 && (
                       <div className="mb-2 text-red-600 text-sm">
-                        Extra guest charges applied: ₹{extraGuestCharge}
+                        Extra guest charges applied: &#8377;{extraGuestCharge}
                       </div>
                     )}
                     <div className="mb-2 text-slate-700">
-                      Cleaning Fee: ₹{cleaningFee}
+                      Cleaning Fee: &#8377;{cleaningFee}
                     </div>
                     <div className="mb-2 text-slate-700">
-                      Service Fee: ₹{serviceFee}
+                      Service Fee: &#8377;{serviceFee}
                     </div>
                     <div className="text-xl font-bold text-indigo-700 mb-4">
-                      Total: ₹{total}
+                      Total: &#8377;{total}
                     </div>
                     <Button
                       onClick={handleBooking}

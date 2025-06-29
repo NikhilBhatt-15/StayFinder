@@ -489,29 +489,45 @@ const getSavedListings = async (req, res, next) => {
 const searchListings = async (req, res, next) => {
   try {
     const { location, checkIn, checkOut, minPrice, maxPrice } = req.query;
+
+    // Base query to exclude deleted listings
     const query = {
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      $and: [
+        { $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] },
+      ],
     };
+
+    // Add location search if provided
     if (location) {
-      query.$or = [
-        { city: { $regex: location, $options: "i" } },
-        { country: { $regex: location, $options: "i" } },
-        { address: { $regex: location, $options: "i" } },
-      ];
+      query.$and.push({
+        $or: [
+          { city: { $regex: location, $options: "i" } },
+          { country: { $regex: location, $options: "i" } },
+          { address: { $regex: location, $options: "i" } },
+        ],
+      });
     }
+
+    // Add price range filter if provided
     if (minPrice || maxPrice) {
-      query.pricePerNight = {};
-      if (minPrice) query.pricePerNight.$gte = Number(minPrice);
-      if (maxPrice) query.pricePerNight.$lte = Number(maxPrice);
+      const priceQuery = {};
+      if (minPrice) priceQuery.$gte = Number(minPrice);
+      if (maxPrice) priceQuery.$lte = Number(maxPrice);
+      query.$and.push({ pricePerNight: priceQuery });
     }
+
+    // Add date availability filter if provided
     if (checkIn && checkOut) {
-      query.availableDates = {
-        $elemMatch: {
-          from: { $lte: checkIn },
-          to: { $gte: checkOut },
+      query.$and.push({
+        availableDates: {
+          $elemMatch: {
+            from: { $lte: checkIn },
+            to: { $gte: checkOut },
+          },
         },
-      };
+      });
     }
+
     const listings = await Listing.find(query)
       .sort({ createdAt: -1 })
       .populate("host", "-password -refreshToken");

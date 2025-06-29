@@ -13,7 +13,7 @@ const app = Router();
 
 app.post("/login", login);
 app.post("/register", upload.single("avatar"), register);
-app.post("logout", authMiddleware, logout);
+app.post("/logout", authMiddleware, logout);
 app.get("/me", authMiddleware, getUserProfile);
 app.post("/refresh-token", refreshToken);
 app.post("/reset-password", authMiddleware, resetPassword);
