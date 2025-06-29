@@ -217,7 +217,7 @@ const GuestDashboard: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell className="font-semibold text-green-600">
-                        ${booking.amount || booking.totalPrice}
+                        ₹{booking.amount || booking.totalPrice}
                       </TableCell>
                       <TableCell>
                         <span
@@ -283,7 +283,7 @@ const GuestDashboard: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-lg font-bold text-purple-600">
-                          ${listing.pricePerNight || listing.price}/night
+                          ₹{listing.pricePerNight || listing.price}/night
                         </span>
                         <div className="flex items-center">
                           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
@@ -350,7 +350,7 @@ const GuestDashboard: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-lg font-bold text-purple-600">
-                          ${listing.pricePerNight || listing.price}/night
+                          ₹{listing.pricePerNight || listing.price}/night
                         </span>
                         <div className="flex items-center">
                           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />

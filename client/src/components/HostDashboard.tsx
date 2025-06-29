@@ -126,7 +126,7 @@ const ListingCard: React.FC<{
       </div>
       <div className="flex items-center justify-between mb-3">
         <span className="text-lg font-bold text-purple-600">
-          ${listing.pricePerNight}/night
+          ₹{listing.pricePerNight}/night
         </span>
         <div className="flex items-center">
           <Users className="h-4 w-4 mr-1 text-slate-500" />
@@ -453,7 +453,8 @@ const HostDashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatsCard
             title="Total Earnings"
-            value={`$${totalEarnings?.toLocaleString()}`}
+            value={`
+₹${totalEarnings?.toLocaleString()}`}
             icon={<DollarSign className="h-4 w-4" />}
             color="text-green-600"
             subtitle="+12% from last month"

@@ -304,7 +304,7 @@ export default function Home() {
                       />
                     </button>
                     <div className="absolute bottom-4 left-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                      ${listing.pricePerNight}/night
+                      ₹{listing.pricePerNight}/night
                     </div>
                   </div>
 
